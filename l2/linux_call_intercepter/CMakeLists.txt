@@ -8,3 +8,5 @@ add_library("${PROJECT_NAME}" SHARED call_intercepter.cpp)
 target_link_libraries("${PROJECT_NAME}" dl)
 set_property(TARGET "${PROJECT_NAME}" PROPERTY POSITION_INDEPENDENT_CODE ON)
 
+target_link_libraries("${PROJECT_NAME}" socket-wrapper)
+
