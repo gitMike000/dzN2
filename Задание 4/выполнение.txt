@@ -1,0 +1,19 @@
+*1
+Запускаем команду sudo tcpdump port 21 | grep -i 'user \| pass '
+
+фильтруем и ждем слово USER:
+21:54:47.662981 IP baby.43500 > u99139.ptb.de.ftp: Flags [P.], seq 7:19, ack 798, win 502, options [nop,nop,TS val 3031387207 ecr 2960308382], length 12: FTP: USER admin
+
+далее ждем слово PASS:
+21:54:47.738615 IP baby.43500 > u99139.ptb.de.ftp: Flags [P.], seq 19:32, ack 832, win 502, options [nop,nop,TS val 3031387282 ecr 2960310299], length 13: FTP: PASS 123456
+
+Соответственно получаем информацию:
+сервер ftp.de.ptb
+USER admin
+PASS 123456
+
+*2
+-устанавливаем ftpcopy
+-запускаем в консоль сервера netcat -u -l -p 10000
+-запускаем в другой консоли ./start4.sh
+-в консоли сервера получаем требуемые данные
